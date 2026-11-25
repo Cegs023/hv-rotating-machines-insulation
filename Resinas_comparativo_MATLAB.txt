@@ -1,0 +1,86 @@
+%%Carlos Guimarães 
+%% Simulação de Envelhecimento Térmico: Resina Epóxi vs. Resina Alquídica
+% Baseado no modelo de Arrhenius e decaimento de 1ª ordem (Norma IEC 60216)
+clear; clc; close all;
+
+% 1. Constantes Físicas
+R = 8.314; % Constante dos gases [J/(mol*K)]
+
+% 2. Parâmetros Típicos dos Materiais (Valores ilustrativos baseados na literatura)
+% Resina Alquídica (Classe B/F - menor energia de ativação, degrada mais rápido)
+Ea_alq = 85e3;      % Energia de ativação [J/mol] (~85 kJ/mol)
+A_alq  = 2.5e6;     % Fator pré-exponencial [1/hora]
+
+% Resina Epóxi (Classe F/H - alta reticulação, maior energia de ativação)
+Ea_epo = 115e3;     % Energia de ativação [J/mol] (~115 kJ/mol)
+A_epo  = 1.8e9;     % Fator pré-exponencial [1/hora]
+
+% Critério de Fim de Vida (End-of-Life - EoL): 50% da propriedade inicial
+EoL_criterio = 0.50; 
+
+%% --- SIMULAÇÃO 1: Degradação no Tempo a Temperatura Constante (180 °C) ---
+T_teste_C = 180;                  % Temperatura de estresse acelerado [°C]
+T_teste_K = T_teste_C + 273.15;   % Conversão para Kelvin [K]
+
+% Taxas de reação k(T)
+k_alq = A_alq * exp(-Ea_alq / (R * T_teste_K));
+k_epo = A_epo * exp(-Ea_epo / (R * T_teste_K));
+
+% Vetor de tempo (0 a 10.000 horas)
+t = linspace(0, 10000, 1000);
+
+% Propriedade Normalizada P(t)/P0 (ex: Rigidez Dielétrica ou Resistência Mecânica)
+P_alq = exp(-k_alq * t) * 100; % em %
+P_epo = exp(-k_epo * t) * 100; % em %
+
+% Cálculo do tempo exato até o fim de vida (50%)
+t_vida_alq = -log(EoL_criterio) / k_alq;
+t_vida_epo = -log(EoL_criterio) / k_epo;
+
+%% --- SIMULAÇÃO 2: Curva de Vida Térmica (Gráfico de Arrhenius) ---
+T_vec_C = linspace(110, 220, 200); % Faixa de temperatura [°C]
+T_vec_K = T_vec_C + 273.15;
+
+% Tempo de vida útil (horas) para atingir 50% da propriedade em cada temperatura
+Vida_alq = (-log(EoL_criterio) ./ A_alq) .* exp(Ea_alq ./ (R .* T_vec_K));
+Vida_epo = (-log(EoL_criterio) ./ A_epo) .* exp(Ea_epo ./ (R .* T_vec_K));
+
+%% --- PLOTAGEM DOS GRÁFICOS ---
+figure('Name', 'Envelhecimento Térmico de Resinas Isolantes', 'Color', 'w', 'Position', [100, 100, 1100, 480]);
+
+% Subplot 1: Queda da propriedade ao longo do tempo
+subplot(1, 2, 1);
+plot(t, P_alq, 'r--', 'LineWidth', 2); hold on;
+plot(t, P_epo, 'b-', 'LineWidth', 2.2);
+yline(EoL_criterio*100, 'k:', 'LineWidth', 1.5, 'Label', 'Limite Fim de Vida (50%)');
+
+% Marcadores de Fim de Vida
+plot(t_vida_alq, 50, 'ro', 'MarkerFaceColor', 'r', 'MarkerSize', 7);
+plot(t_vida_epo, 50, 'bo', 'MarkerFaceColor', 'b', 'MarkerSize', 7);
+
+title(sprintf('Degradação Isotérmica a %d °C', T_teste_C), 'FontSize', 12, 'FontWeight', 'bold');
+xlabel('Tempo de Exposição [horas]', 'FontSize', 10);
+ylabel('Propriedade Retida (Dielétrica / Mecânica) [%]', 'FontSize', 10);
+legend(sprintf('Resina Alquídica (Fim de vida: %.0f h)', t_vida_alq), ...
+       sprintf('Resina Epóxi (Fim de vida: %.0f h)', t_vida_epo), ...
+       'Location', 'northeast');
+grid on;
+ylim([0 105]);
+
+% Subplot 2: Curva de Vida Térmica (Arrhenius)
+subplot(1, 2, 2);
+semilogy(T_vec_C, Vida_alq, 'r--', 'LineWidth', 2); hold on;
+semilogy(T_vec_C, Vida_epo, 'b-', 'LineWidth', 2.2);
+yline(20000, 'k:', 'LineWidth', 1.5, 'Label', 'Referência IEC (20.000 h)');
+
+title('Curva de Vida Térmica (Modelo de Arrhenius)', 'FontSize', 12, 'FontWeight', 'bold');
+xlabel('Temperatura de Operação [°C]', 'FontSize', 10);
+ylabel('Vida Útil Estimada [horas - escala log]', 'FontSize', 10);
+legend('Resina Alquídica', 'Resina Epóxi', 'Location', 'northeast');
+grid on;
+ylim([1e2 1e6]);
+
+% Exibição dos resultados no Command Window
+fprintf('--- RESULTADOS DA SIMULAÇÃO A %d °C ---\n', T_teste_C);
+fprintf('Vida útil estimada (Alquídica): %.1f horas\n', t_vida_alq);
+fprintf('Vida útil estimada (Epóxi):     %.1f horas\n', t_vida_epo);
